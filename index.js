@@ -21,11 +21,49 @@ async function run() {
     const appointmentOptionCollection = client
       .db("doctorsPortal")
       .collection("appointmentOptions");
+    const bookingsCollection = client
+      .db("doctorsPortal")
+      .collection("bookings");
 
     app.get("/appointments", async (req, res) => {
+      const date = req.query.date;
       const query = {};
       const options = await appointmentOptionCollection.find(query).toArray();
+      const bookingQuery = { appointmentDate: date };
+      const alreadyBooked = await appointmentOptionCollection
+        .find(bookingQuery)
+        .toArray();
+
+      options.forEach((option) => {
+        const optionBooked = alreadyBooked.filter(
+          (book) => book.treatment === option.name
+        );
+        const bookedSlots = optionBooked.map((book) => book.slots);
+        const remainingSlots = option.slots.filter(
+          (slot) => !bookedSlots.includes(slot)
+        );
+        option.slots = remainingSlots;
+        console.log(option.name, bookedSlots, remainingSlots.length);
+      });
       res.send(options);
+    });
+
+    app.post("/bookings", async (req, res) => {
+      const booking = req.body;
+      const query = {
+        appointmentDate: booking.appointmentDate,
+        email: booking.email,
+        treatment: booking.treatment,
+      };
+
+      const alreadyBooked = await bookingsCollection.find(query).toArray();
+      if (alreadyBooked.length) {
+        const message = `You already have an appointment on ${booking.appointmentDate}`;
+        return res.send({ acknowledged: false, message });
+      }
+
+      const result = await bookingsCollection.insertOne(booking);
+      res.send(result);
     });
   } finally {
   }
