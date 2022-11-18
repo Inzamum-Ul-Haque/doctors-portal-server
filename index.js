@@ -29,21 +29,25 @@ async function run() {
       const date = req.query.date;
       const query = {};
       const options = await appointmentOptionCollection.find(query).toArray();
+
+      // এই ডেটের মাধ্যমে এই particular date এ particular রোগের জন্য যতগুলো booking available আছে সবগুলো পাবো আমরা।
       const bookingQuery = { appointmentDate: date };
-      const alreadyBooked = await appointmentOptionCollection
+      const alreadyBooked = await bookingsCollection
         .find(bookingQuery)
         .toArray();
 
+      // প্রত্যেক option এর জন্য ঐ দিনে কতগুলো বুকিং available আছে সেগুলোকে দিবে
       options.forEach((option) => {
         const optionBooked = alreadyBooked.filter(
           (book) => book.treatment === option.name
         );
-        const bookedSlots = optionBooked.map((book) => book.slots);
+
+        // প্রত্যেক option এর জন্য কয়টা বুকিং স্লট বুক করা হয়েছে সেগুলো কে দিবে
+        const bookedSlots = optionBooked.map((book) => book.slot);
         const remainingSlots = option.slots.filter(
           (slot) => !bookedSlots.includes(slot)
         );
         option.slots = remainingSlots;
-        console.log(option.name, bookedSlots, remainingSlots.length);
       });
       res.send(options);
     });
@@ -64,6 +68,13 @@ async function run() {
 
       const result = await bookingsCollection.insertOne(booking);
       res.send(result);
+    });
+
+    app.get("/bookings", async (req, res) => {
+      const email = req.query.email;
+      const query = { email: email };
+      const bookings = await bookingsCollection.find(query).toArray();
+      res.send(bookings);
     });
   } finally {
   }
